@@ -1,0 +1,48 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+import random
+
+def buscar_js_stealth(url):
+    """
+    Função de Fallback Stealth para JS Pesado e Scroller.
+    """
+    options = Options()
+    
+    # --- TÉCNICA ANTI-BLOQUEIO 2026 ---
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    # Modo Headless Novo (Mais indetectável que o antigo)
+    options.add_argument("--headless=new")
+    
+    # Headers Humanos
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    options.add_argument("--lang=pt-BR")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    
+    # Remove a flag 'navigator.webdriver' via script
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    try:
+        driver.get(url)
+        # Delay Humano (Download Delay Dinâmico)
+        time.sleep(random.uniform(2.0, 5.5))
+        
+        # Scroll infinito se necessário (Exemplo de simulação humana)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(1.5)
+        
+        html = driver.page_source
+        return html
+    except Exception as e:
+        print(f"Erro no Selenium Stealth: {e}")
+        return None
+    finally:
+        driver.quit()
+
+# Manteremos nosso 'hunt_leads_maps' original também, que já usa essa técnica.
+# ... (o hunt_leads_maps já está implementado corretamente com stealth)

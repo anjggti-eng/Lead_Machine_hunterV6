@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+{% block title %}Platinum Intelligence v6.0{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    #map {
+        height: 480px;
+        width: 100%;
+        border-radius: 18px;
+        border: 2px solid var(--glass-border);
+        margin-bottom: 2rem;
+        position: relative;
+        z-index: 10;
+    }
+
+    .leaflet-container {
+        background: #1a1c18;
+    }
+
+    .map-overlay-btn {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        background: var(--primary);
+        color: #000;
+        border: none;
+        padding: 10px 22px;
+        border-radius: 50px;
+        font-weight: 800;
+        font-size: 0.8rem;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        transition: all 0.3s;
+    }
+
+    .map-overlay-btn:hover {
+        background: var(--accent);
+        transform: translateX(-50%) scale(1.05);
+    }
+</style>
+
+<div style="display:grid; grid-template-columns: 2.5fr 1fr; gap: 2rem; align-items: start;">
+
+    <!-- ESQUERDA: Mapa + Tabela -->
+    <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+            <div>
+                <h1 style="margin:0; font-size: 2rem;">GEO HUNTER v6</h1>
+                <p style="color:var(--secondary); margin:0; font-size: 0.85rem;">Powered by Geoapify Places API ·
+                    Extração Stealth</p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="deleteAllBtn" onclick="deleteAll()" class="btn-danger" style="padding:6px 12px; font-size:0.8rem;">
+                    <i class="fa-solid fa-trash-can"></i> EXCLUIR TODOS
+                </button>
+            </div>
+            <div class="glass-card"
+                style="padding: 8px 18px; border-radius: 12px; text-align:center; color: var(--accent);">
+                <small style="opacity:0.6;">LEADS</small><br>
+                <strong style="font-size: 1.4rem;">{{ leads | length }}</strong>
+            </div>
+        </div>
+
+        <!-- MAPA -->
+        <div style="position:relative;">
+            <div id="map"></div>
+            <button onclick="searchInMapArea()" class="map-overlay-btn">
+                <i class="fa-solid fa-expand"></i> BUSCAR NESSA ÁREA
+            </button>
+        </div>
+
+        <!-- TABELA DE LEADS -->
+        <div class="glass-card">
+            <table class="lead-table">
+                <thead>
+                    <tr>
+                        <th>EMPRESA</th>
+                        <th>CONTATO</th>
+                        <th>SCORE</th>
+                        <th>AÇÕES</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTableBody">
+                    {% for lead in leads %}
+                    <tr>
+                        <td>
+                            <strong>{{ lead.empresa }}</strong><br>
+                            <small style="opacity:0.5; font-size:0.72rem;">{{ lead.endereco or lead.cidade }}</small>
+                        </td>
+                        <td style="font-family: monospace; color: var(--primary);">
+                            {{ lead.telefone or 'Pendente' }}
+                        </td>
+                        <td>
+                            <span
+                                style="padding:4px 8px; border-radius:6px; background:rgba(205,219,194,0.1); font-weight:800; font-size:0.8rem; color: var(--primary);">
+                                {{ lead.score }}%
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <button onclick="generateScript({{ lead.id }})" class="btn-primary"
+                                    style="padding: 5px 10px; font-size:0.7rem;">IA PITCH</button>
+                                {% if lead.telefone and lead.telefone != 'Pendente' and lead.telefone != 'Não informado'
+                                %}
+                                <a href="https://wa.me/{{ lead.telefone | replace('(','') | replace(')','') | replace('-','') | replace(' ','') | replace('+','') }}"
+                                    target="_blank" class="btn-primary"
+                                    style="background:#22c55e; padding:5px 10px; font-size:0.7rem; text-decoration:none;">WA</a>
+                                {% endif %}
+                                <button onclick="deleteLead({{ lead.id }})"
+                                    style="background:none; border:none; color:#ef4444; cursor:pointer;"><i
+                                        class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- DIREITA: Painel de Controle -->
+    <div>
+        <div class="glass-card" style="border-top: 4px solid var(--primary); margin-bottom: 1.5rem;">
+            <h3 style="margin-top:0; font-size: 1rem; letter-spacing: 1px;">CENTRAL DE CAÇA</h3>
+
+            <label style="font-size: 0.72rem; opacity: 0.7;">O QUÊ BUSCAR?</label>
+            <input id="huntQuery" type="text" class="input-field" placeholder="Ex: Oficina Mecânica">
+
+            <label style="font-size: 0.72rem; opacity: 0.7; margin-top: 0.8rem; display:block;">CIDADE / REGIÃO</label>
+            <input id="huntLocation" type="text" class="input-field" placeholder="Ex: São Paulo, SP">
+
+            <label style="font-size: 0.72rem; opacity: 0.7; margin-top: 0.8rem; display:block;">RAIO DE ALCANCE</label>
+            <select id="huntRadius" class="input-field">
+                <option value="1000">1 KM</option>
+                <option value="3000">3 KM</option>
+                <option value="5000" selected>5 KM</option>
+                <option value="10000">10 KM</option>
+                <option value="30000">30 KM</option>
+            </select>
+
+            <label style="font-size: 0.72rem; opacity: 0.7; margin-top: 0.8rem; display:block;">TIPO DE BUSCA</label>
+            <select id="huntType" class="input-field">
+                <option value="radius" selected>Por Raio</option>
+                <option value="city">Por Cidade</option>
+                <option value="isoline">Por Isoline</option>
+                <option value="map">Área do Mapa</option>
+            </select>
+
+            <button onclick="startHunt()" id="huntBtn" class="btn-primary"
+                style="width:100%; margin-top: 1.5rem; padding: 14px; font-size: 0.9rem;">
+                DISPARAR HUNTER
+            </button>
+            <div id="huntStatus"
+                style="margin-top: 1rem; font-size: 0.78rem; text-align: center; color: var(--secondary); min-height: 30px;">
+                Pronto para caçar.
+            </div>
+        </div>
+
+        <div class="glass-card" style="border-top: 4px solid var(--accent);">
+            <h3 style="margin-top:0; font-size: 1rem;">IA · SCRIPT DE VENDAS</h3>
+            <button onclick="generateAllScripts()" class="btn-primary" style="width:100%; margin-bottom:0.5rem; padding: 8px; font-size:0.8rem;">
+                IA PITCH PARA TODOS
+            </button>
+            <div id="aiResponse" class="ai-output" style="font-size: 0.82rem; min-height: 100px;">
+                Selecione um lead ou use o botão acima.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // =============================================
+    // == MAPA (Leaflet + Geoapify Tiles) =========
+    // =============================================
+    const GEOAPIFY_KEY = "004191afd7974679a48d5442fb1b1924";
+
+    let map = null;
+    let searchCircle = null;
+    let searchCenterMarker = null;
+    let searchCenter = null;
+    let allMarkers = [];
+
+    // Inicializa o mapa assim que a página carregar
+    window.addEventListener('load', function () {
+        if (typeof L === 'undefined') {
+            console.error("Leaflet não carregou!");
+            document.getElementById('map').innerHTML = '<p style="color:#aaa;text-align:center;padding-top:200px;">Erro ao carregar mapa. Verifique conexão.</p>';
+            return;
+        }
+
+        // Geoapify Tiles (usa a chave da API para tiles dark)
+        map = L.map('map').setView([-23.5505, -46.6333], 12);
+
+        L.tileLayer(
+            `https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_KEY}`,
+            { maxZoom: 20, attribution: '© Geoapify · © OpenStreetMap' }
+        ).addTo(map);
+
+        // Click no mapa para definir centro de busca
+        map.on('click', function (e) {
+            searchCenter = { lat: e.latlng.lat, lon: e.latlng.lng };
+            document.getElementById('huntLocation').value = e.latlng.lat.toFixed(5) + ", " + e.latlng.lng.toFixed(5);
+            
+            // Remove marcador anterior
+            if (searchCenterMarker) map.removeLayer(searchCenterMarker);
+            
+            // Cria novo marcador no centro (vermelho)
+            searchCenterMarker = L.circleMarker([searchCenter.lat, searchCenter.lon], {
+                radius: 8,
+                fillColor: "#ef4444",
+                color: "#fff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map).bindPopup('Centro de Busca<br>Lat: ' + searchCenter.lat.toFixed(4) + '<br>Lon: ' + searchCenter.lon.toFixed(4));
+            
+            updateSearchCircle();
+            document.getElementById('huntStatus').innerHTML = '<span style="color:#22c55e;">✓ Centro definido. Raio: ' + (parseInt(document.getElementById('huntRadius').value) / 1000) + ' km</span>';
+        });
+
+        document.getElementById('huntRadius').addEventListener('change', updateSearchCircle);
+
+        // Pinos dos leads já cadastrados
+        const existingLeads = [
+            {% for lead in leads %}
+                {% if lead.lat and lead.lon %}
+    { n: {{ lead.empresa | tojson }}, lat: {{ lead.lat }}, lon: {{ lead.lon }}, s: {{ lead.score or 0 }} },
+    {% endif %}
+    {% endfor %}
+        ];
+
+    if (existingLeads.length > 0) {
+        existingLeads.forEach(l => addMarker(l.lat, l.lon, l.n, l.s));
+        map.setView([existingLeads[0].lat, existingLeads[0].lon], 13);
+    }
+
+    console.log("Mapa Geoapify ONLINE. Leads carregados:", existingLeads.length);
+    });
+
+    function updateSearchCircle() {
+        if (!searchCenter || !map) return;
+        const r = parseInt(document.getElementById('huntRadius').value);
+        if (searchCircle) map.removeLayer(searchCircle);
+        searchCircle = L.circle([searchCenter.lat, searchCenter.lon], {
+            color: '#22c55e', 
+            weight: 2,
+            fillColor: '#22c55e', 
+            fillOpacity: 0.1, 
+            radius: r,
+            dashArray: '5, 5'
+        }).addTo(map);
+        document.getElementById('huntStatus').innerHTML = '<span style="color:#22c55e;">✓ Raio: ' + (r / 1000).toFixed(1) + ' km - Pronto para buscar!</span>';
+    }
+
+    function addMarker(lat, lon, name, score) {
+        const m = L.marker([lat, lon]).addTo(map);
+        m.bindPopup('<b>' + name + '</b><br>Score IA: ' + score + '%');
+        allMarkers.push(m);
+    }
+
+    // =============================================
+    // == BUSCA GEOAPIFY PLACES API ================
+    // =============================================
+    async function startHunt() {
+        const q = document.getElementById('huntQuery').value.trim();
+        const loc = document.getElementById('huntLocation').value.trim();
+        const rad = document.getElementById('huntRadius').value;
+        const type = document.getElementById('huntType').value;
+        const btn = document.getElementById('huntBtn');
+        const st = document.getElementById('huntStatus');
+
+        if (!q) return alert("O que você quer buscar?");
+
+        let payload = { query: q, type: type };
+        let modoText = '';
+
+        if (type === 'radius' || type === 'isoline') {
+            if (!searchCenter) return alert("Clique no mapa para definir o centro!");
+            payload.center = searchCenter;
+            payload.radius = rad;
+            modoText = 'Buscando ' + q + ' em raio de ' + (rad/1000).toFixed(1) + ' km';
+        } else if (type === 'city') {
+            if (!loc) return alert("Digite a cidade!");
+            payload.location = loc;
+            modoText = 'Buscando ' + q + ' em ' + loc;
+        } else if (type === 'map') {
+            if (!map) return alert("Mapa não carregado!");
+            const bounds = map.getBounds();
+            payload.bounds = {
+                sw: { lat: bounds.getSouthWest().lat, lon: bounds.getSouthWest().lng },
+                ne: { lat: bounds.getNorthEast().lat, lon: bounds.getNorthEast().lng }
+            };
+            modoText = 'Buscando ' + q + ' na área visível';
+        }
+
+        btn.disabled = true;
+        st.innerHTML = '<i class="fa-solid fa-satellite-dish fa-spin"></i> ' + modoText + '...';
+
+        try {
+            // Timeout maior para buscas por Selenium
+            const timeoutMs = type === 'radius' || type === 'isoline' ? 120000 : 60000;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+            const r = await fetch('/start-hunt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            const d = await r.json();
+            if (d.error) {
+                st.innerHTML = '<span style="color:#ef4444"><i class="fa-solid fa-exclamation-circle"></i> Erro: ' + d.error + '</span>';
+                btn.disabled = false;
+                return;
+            }
+            if (d.status === 'Sucesso') {
+                st.innerHTML = '<span style="color:#22c55e"><i class="fa-solid fa-check"></i> ' + d.message + '</span>';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                st.innerHTML = '<span style="color:#ef4444"><i class="fa-solid fa-exclamation-circle"></i> Erro: ' + (d.error || 'Falha') + '</span>';
+                btn.disabled = false;
+            }
+        } catch (e) {
+            if (e.name === 'AbortError') {
+                st.innerHTML = '<span style="color:#fbbf24"><i class="fa-solid fa-clock"></i> Busca demorando... Aguarde (máx 2 min)</span>';
+            } else {
+                st.innerHTML = '<span style="color:#ef4444"><i class="fa-solid fa-exclamation-circle"></i> Falha na rede. Aguarde ' + (rad > 5000 ? '2-3 min' : '30-60 seg') + '...</span>';
+            }
+            btn.disabled = false;
+        }
+    }
+
+    async function searchInMapArea() {
+        const q = document.getElementById('huntQuery').value.trim();
+        if (!q) return alert("Digite o que buscar primeiro!");
+        if (!map) return alert("Mapa não carregado!");
+
+        const bounds = map.getBounds();
+        const st = document.getElementById('huntStatus');
+        const btn = document.getElementById('huntBtn');
+        btn.disabled = true;
+        st.innerHTML = '<i class="fa-solid fa-crosshairs fa-spin"></i> Buscando na área visível...';
+
+        const payload = {
+            query: q,
+            type: 'map',
+            bounds: {
+                sw: { lat: bounds.getSouthWest().lat, lon: bounds.getSouthWest().lng },
+                ne: { lat: bounds.getNorthEast().lat, lon: bounds.getNorthEast().lng }
+            }
+        };
+
+        try {
+            const r = await fetch('/start-hunt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const d = await r.json();
+            if (d.status === 'Sucesso') {
+                st.innerHTML = '<span style="color:#22c55e"><i class="fa-solid fa-check"></i> ' + d.message + '</span>';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                st.innerHTML = '<span style="color:#ef4444"><i class="fa-solid fa-exclamation-circle"></i> Erro: ' + (d.error || 'Falha') + '</span>';
+                btn.disabled = false;
+            }
+        } catch (e) { 
+            st.innerHTML = '<span style="color:#ef4444"><i class="fa-solid fa-exclamation-circle"></i> Falha na rede.</span>';
+            btn.disabled = false;
+        }
+    }
+
+    async function generateScript(id) {
+        const out = document.getElementById('aiResponse');
+        out.innerHTML = '<i class="fa-solid fa-brain fa-fade"></i> IA Gerando Pitch Personalizado...';
+        try {
+            const r = await fetch('/generate-script/' + id);
+            const d = await r.json();
+            out.innerText = d.script;
+        } catch (e) { out.innerText = "IA offline."; }
+    }
+
+    async function generateAllScripts() {
+        const out = document.getElementById('aiResponse');
+        out.innerHTML = '<i class="fa-solid fa-brain fa-fade"></i> IA Gerando pitch para todos os leads...';
+        try {
+            const r = await fetch('/generate-script-all');
+            const list = await r.json();
+            let text = '';
+            list.forEach(item => {
+                text += `Empresa: ${item.empresa}\n${item.script}\n\n`;
+            });
+            out.innerText = text || 'Nenhum lead disponível.';
+        } catch (e) {
+            out.innerText = "IA offline.";
+        }
+    }
+
+    async function deleteLead(id) {
+        if (confirm("Excluir este lead?")) {
+            await fetch('/delete-lead/' + id, { method: 'DELETE' });
+            location.reload();
+        }
+    }
+
+    async function deleteAll() {
+        if (confirm("Deseja remover todos os leads? Esta ação não pode ser desfeita.")) {
+            const r = await fetch('/delete-all', { method: 'POST' });
+            const d = await r.json();
+            if (d.success) {
+                alert(`Removidos ${d.deleted || 0} leads.`);
+                location.reload();
+            } else {
+                alert('Falha ao excluir todos.');
+            }
+        }
+    }
+
+    async function deleteLead(id) {
+        if (confirm("Excluir este lead?")) {
+            await fetch('/delete-lead/' + id, { method: 'DELETE' });
+            location.reload();
+        }
+    }
+</script>
+{% endblock %}

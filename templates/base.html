@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Machine - {% block title %}{% endblock %}</title>
+
+  <!-- Google Fonts Outfit -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Leaflet.js (Essential for Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet.js (Essential for Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+  <nav class="nav-bar glass-card">
+    <h2 style="margin:0; font-weight:600; font-size: 1.5rem; letter-spacing: -0.025em; color: var(--primary);">
+      <i class="fa-solid fa-bolt-lightning"></i> LEAD MACHINE
+    </h2>
+    {% if current_user.is_authenticated %}
+    <div style="display: flex; gap: 1.5rem; align-items: center;">
+      <a href="/dashboard" style="color:white; text-decoration:none;">Painel</a>
+      <a href="/logout" style="color: rgba(255,255,255,0.6); text-decoration:none;"><i
+          class="fa-solid fa-right-from-bracket"></i> Sair</a>
+    </div>
+    {% endif %}
+  </nav>
+
+  <div style="padding: 3rem 5%; max-width: 1400px; margin: 0 auto;">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div
+      style="padding: 1rem; margin-bottom: 2rem; border-left: 4px solid var(--primary); background: rgba(0,0,0,0.2); border-radius: 8px;">
+      {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</body>
+
+</html>

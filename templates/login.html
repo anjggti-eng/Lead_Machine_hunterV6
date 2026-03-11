@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Acesso Restrito{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:center; align-items:center; min-height: 70vh;">
+    <div class="glass-card" style="width: 100%; max-width: 400px; text-align:center;">
+        <h1 style="font-weight:600; font-size: 2.25rem; color: var(--text);">ACESSAR PAINEL</h1>
+        <p style="color: rgba(255,255,255,0.6); margin-bottom: 2rem;">Acesso exclusivo para administradores.</p>
+
+        <form method="POST">
+            <div style="text-align:left; margin-bottom:1.5rem;">
+                <label
+                    style="display:block; margin-bottom: 0.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">USUÁRIO</label>
+                <input class="input-field" type="text" name="username" placeholder="Digite seu usuário" required>
+            </div>
+            <div style="text-align:left; margin-bottom:2rem;">
+                <label
+                    style="display:block; margin-bottom: 0.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.4);">SENHA</label>
+                <input class="input-field" type="password" name="password" placeholder="Digite sua senha" required>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%; font-size:1.1rem; padding: 14px;">ENTRAR AGORA
+                <i class="fa-solid fa-arrow-right"></i></button>
+        </form>
+    </div>
+</div>
+{% endblock %}
