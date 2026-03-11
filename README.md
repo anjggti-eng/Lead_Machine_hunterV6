@@ -84,4 +84,4 @@ lead_machine/
 Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
 ---
-Desenvolvido com ❤️ por [Sua Equipe/Nome]
+Desenvolvido com ❤️ por William John
